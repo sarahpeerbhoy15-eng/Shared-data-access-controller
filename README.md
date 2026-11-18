@@ -4,8 +4,8 @@ A reader–writer simulation in C (POSIX threads + semaphores) that **records ev
 read and write request** and shows how shared data access can be coordinated
 without conflicting operations.
 
-**Course:** Processor Architecture & Operating Systems (PAOS) — Project 64
-**Author:** Sarah Peerbhoy (Div A, Roll No 64, SRN 31252273)
+**Course:** Processor Architecture & Operating Systems (PAOS) — Project
+**Author:** Sarah Peerbhoy
 
 ## Features
 - Readers share the data; writers get exclusive access (semaphores)
