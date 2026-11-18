@@ -1,4 +1,6 @@
-/* STEP 4: Add modes + command-line arguments + a fairness option
+/* Shared Data Access Controller - Reader/Writer model (final version)
+ * Records every read/write request, coordinates access with semaphores,
+ * detects conflicts, and prints a statistics summary.
  *   Usage: ./controller [sync|fair|nosync] [num_readers] [num_writers]   */
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +16,14 @@
 
 enum Mode { NOSYNC, SYNC, FAIR };
 enum Mode mode = SYNC;
+
+/* statistics + conflict detector (protected by stats_lock) */
+pthread_mutex_t stats_lock = PTHREAD_MUTEX_INITIALIZER;
+int active_readers = 0, active_writers = 0;   /* who is inside RIGHT NOW */
+int max_readers = 0;                          /* most readers inside at once */
+int conflicts = 0;                            /* illegal overlaps detected */
+int n_reads = 0, n_writes = 0;
+double wait_reads = 0, wait_writes = 0;       /* total waiting time (ms) */
 
 int data = 100;
 int read_count = 0;                   /* how many readers are inside right now */
@@ -50,8 +60,35 @@ void log_event(int is_writer, int id, const char *event, int value) {
     pthread_mutex_unlock(&log_lock);
 }
 
+/* called the moment a request is granted: records the wait and checks the rules
+ *   rule 1: a writer must be completely alone
+ *   rule 2: readers may overlap with each other, but never with a writer   */
+void on_granted(int is_writer, double waited) {
+    pthread_mutex_lock(&stats_lock);
+    if (is_writer) {
+        if (active_writers > 0 || active_readers > 0) conflicts++;
+        active_writers++;
+        n_writes++;
+        wait_writes += waited;
+    } else {
+        if (active_writers > 0) conflicts++;
+        active_readers++;
+        if (active_readers > max_readers) max_readers = active_readers;
+        n_reads++;
+        wait_reads += waited;
+    }
+    pthread_mutex_unlock(&stats_lock);
+}
+
+void on_done(int is_writer) {
+    pthread_mutex_lock(&stats_lock);
+    if (is_writer) active_writers--; else active_readers--;
+    pthread_mutex_unlock(&stats_lock);
+}
+
 void *reader(void *arg) {
     int id = *(int *)arg;
+    double requested = now_ms();
     log_event(0, id, "REQUEST", -1);
 
     if (mode == FAIR) {               /* queue behind any waiting writer */
@@ -66,10 +103,12 @@ void *reader(void *arg) {
         sem_post(&mutex);
     }
 
+    on_granted(0, now_ms() - requested);
     log_event(0, id, "GRANTED", -1);
     int value = data;
     usleep(WORK_US);
     log_event(0, id, "DONE-READ", value);
+    on_done(0);
 
     if (mode != NOSYNC) {
         sem_wait(&mutex);
@@ -83,6 +122,7 @@ void *reader(void *arg) {
 
 void *writer(void *arg) {
     int id = *(int *)arg;
+    double requested = now_ms();
     log_event(1, id, "REQUEST", -1);
 
     if (mode == FAIR)
@@ -90,11 +130,13 @@ void *writer(void *arg) {
     if (mode != NOSYNC)
         sem_wait(&wrt);               /* wait until nobody else is using the data */
 
+    on_granted(1, now_ms() - requested);
     log_event(1, id, "GRANTED", -1);
     int temp = data;
     usleep(WORK_US);
     data = temp + 10;
     log_event(1, id, "DONE-WRITE", data);
+    on_done(1);
 
     if (mode != NOSYNC)
         sem_post(&wrt);               /* hand the data back */
@@ -151,7 +193,20 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < nw; i++) pthread_join(w[i], NULL);
     for (int i = 0; i < nr; i++) pthread_join(r[i], NULL);
 
-    printf("\nFinal data = %d (expected %d)\n", data, 100 + 10 * nw);
+    int expected = 100 + 10 * nw;
+    int ok = (data == expected && conflicts == 0);
+    printf("\n================ SUMMARY ================\n");
+    printf("Mode                : %s\n", mode_name);
+    printf("Total time          : %.0f ms\n", now_ms());
+    printf("Reads / avg wait    : %d / %.0f ms\n", n_reads, n_reads ? wait_reads / n_reads : 0);
+    printf("Writes / avg wait   : %d / %.0f ms\n", n_writes, n_writes ? wait_writes / n_writes : 0);
+    printf("Max readers at once : %d\n", max_readers);
+    printf("Conflicts detected  : %d\n", conflicts);
+    printf("Final data          : %d (expected %d)\n", data, expected);
+    printf("%sRESULT: %s\033[0m\n", ok ? "\033[32m" : "\033[31m",
+           ok ? "PASS - no conflicting operations" : "FAIL - conflicting operations occurred");
+    fprintf(logfile, "\nConflicts: %d | Final data: %d (expected %d) | %s\n",
+            conflicts, data, expected, ok ? "PASS" : "FAIL");
     fclose(logfile);
     sem_destroy(&wrt);
     sem_destroy(&mutex);
