@@ -1,0 +1,38 @@
+=== Mode: fair | 6 readers, 3 writers ===
+[    0 ms] Writer 1: REQUEST
+[    0 ms] Writer 1: GRANTED
+[  101 ms] Reader 1: REQUEST
+[  202 ms] Reader 2: REQUEST
+[  302 ms] Writer 2: REQUEST
+[  403 ms] Reader 3: REQUEST
+[  501 ms] Writer 1: DONE-WRITE (data = 110)
+[  501 ms] Reader 1: GRANTED
+[  501 ms] Reader 2: GRANTED
+[  504 ms] Reader 4: REQUEST
+[  604 ms] Writer 3: REQUEST
+[  705 ms] Reader 5: REQUEST
+[  806 ms] Reader 6: REQUEST
+[ 1001 ms] Reader 2: DONE-READ  (data = 110)
+[ 1001 ms] Reader 1: DONE-READ  (data = 110)
+[ 1001 ms] Writer 2: GRANTED
+[ 1502 ms] Writer 2: DONE-WRITE (data = 120)
+[ 1502 ms] Reader 3: GRANTED
+[ 1502 ms] Reader 4: GRANTED
+[ 2003 ms] Reader 4: DONE-READ  (data = 120)
+[ 2003 ms] Reader 3: DONE-READ  (data = 120)
+[ 2003 ms] Writer 3: GRANTED
+[ 2503 ms] Writer 3: DONE-WRITE (data = 130)
+[ 2503 ms] Reader 5: GRANTED
+[ 2504 ms] Reader 6: GRANTED
+[ 3004 ms] Reader 5: DONE-READ  (data = 130)
+[ 3004 ms] Reader 6: DONE-READ  (data = 130)
+
+================ SUMMARY ================
+Mode                : fair
+Total time          : 3004 ms
+Reads / avg wait    : 6 / 1049 ms
+Writes / avg wait   : 3 / 699 ms
+Max readers at once : 2
+Conflicts detected  : 0
+Final data          : 130 (expected 130)
+RESULT: PASS - no conflicting operations

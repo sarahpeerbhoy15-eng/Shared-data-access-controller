@@ -1,0 +1,26 @@
+=== Mode: sync | 3 readers, 2 writers ===
+[    0 ms] Writer 1: REQUEST
+[    0 ms] Writer 1: GRANTED
+[  101 ms] Reader 1: REQUEST
+[  202 ms] Reader 2: REQUEST
+[  303 ms] Writer 2: REQUEST
+[  404 ms] Reader 3: REQUEST
+[  501 ms] Writer 1: DONE-WRITE (data = 110)
+[  501 ms] Reader 1: GRANTED
+[  501 ms] Reader 2: GRANTED
+[  501 ms] Reader 3: GRANTED
+[ 1002 ms] Reader 2: DONE-READ  (data = 110)
+[ 1002 ms] Reader 1: DONE-READ  (data = 110)
+[ 1002 ms] Reader 3: DONE-READ  (data = 110)
+[ 1002 ms] Writer 2: GRANTED
+[ 1502 ms] Writer 2: DONE-WRITE (data = 120)
+
+================ SUMMARY ================
+Mode                : sync
+Total time          : 1502 ms
+Reads / avg wait    : 3 / 265 ms
+Writes / avg wait   : 2 / 349 ms
+Max readers at once : 3
+Conflicts detected  : 0
+Final data          : 120 (expected 120)
+RESULT: PASS - no conflicting operations
